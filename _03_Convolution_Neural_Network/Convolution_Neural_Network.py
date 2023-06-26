@@ -15,47 +15,27 @@ from torch.utils.data import DataLoader
     
 
 class NeuralNetwork(nn.Module):
-        def __init__(self,input_channels):
-        super().__init__()
-        # 第1个卷积层
-        self.conv1 = nn.Conv2d(input_channels, 96, kernel_size=11, stride=4)
-        # 第1个池化层
-        self.pooling1 = nn.MaxPool2d(kernel_size=3, stride=2)
-        # 第2个卷积层
-        self.conv2 = nn.Conv2d(96, 256, kernel_size=5, padding=2)
-        # 第2个池化层
-        self.pooling2 = nn.MaxPool2d(kernel_size=3, stride=2)
-        # 第3个卷积层
-        self.conv3 = nn.Conv2d(256, 384, kernel_size=3, padding=1)
-        # 第4个卷积层
-        self.conv4 = nn.Conv2d(384, 384, kernel_size=3, padding=1)
-        # 第5个卷积层
-        self.conv5 = nn.Conv2d(384, 256, kernel_size=3, padding=1)
-        # 第3个池化层
-        self.pooling3 = nn.MaxPool2d(kernel_size=3, stride=2)
+        def __init__(self, in_channels, out_channels, stride=1, downsample=None):
+        super(NeuralNetwork, self).__init__()
+        self.conv1 = conv3x3(in_channels, out_channels, stride)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(out_channels, out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.downsample = downsample
 
-        ##最后的三个FC
-        self.Flatten = nn.Flatten(start_dim=1,end_dim=-1)
-        # 计算得出的当前的前面处理过后的shape，当然也可print出来以后再确定
-        self.Linear1 = nn.Linear(6400, 4096)
-        self.drop1 = nn.Dropout(p = 0.5)
-        self.Linear2 = nn.Linear(4096, 4096)
-        self.drop2 = nn.Dropout(p = 0.5)
-        self.Linear3 = nn.Linear(4096, 10)
-
-    def forward(self,X):
-        X = self.pooling1(F.relu(self.conv1(X)))
-        X = self.pooling2(F.relu(self.conv2(X)))
-        X = F.relu(self.conv3(X))
-        X = F.relu(self.conv4(X))
-        X = F.relu(self.conv5(X))
-        X = self.pooling3(X)
-        X = X.view(X.size()[0], -1)
-        X = self.drop1(F.relu(self.Linear1(X)))
-        X = self.drop2(F.relu(self.Linear2(X)))
-        X = F.relu(self.Linear3(X))
-
-        return X
+    def forward(self, x):
+        residual = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        if self.downsample:
+            residual = self.downsample(x)
+        out += residual
+        out = self.relu(out)
+        return out
 
 def read_data():
     # 这里可自行修改数据预处理，batch大小也可自行调整
